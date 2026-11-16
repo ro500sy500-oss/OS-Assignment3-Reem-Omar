@@ -147,7 +147,7 @@ class ReadyQueue {
         } finally {
             lock.unlock();
         }
-
+        semaphore.release();
         System.out.println(Colors.BLUE + "  ➕ " + Colors.BOLD + Colors.CYAN + process.getName() + Colors.RESET +
                 Colors.BLUE + " (Priority: " + process.getPriority() + ") added to ready queue" + Colors.RESET +
                 " │ Remaining: " + Colors.YELLOW + process.getRemainingTime() + "ms" + Colors.RESET +
@@ -194,6 +194,12 @@ class ReadyQueue {
             lock.unlock();
         }
     }
+  public void wakeUpAllCPUs() {
+        semaphore.release(SharedStats.totalCPUs);
+    } 
+ public void awaitProcess() throws InterruptedException {
+    semaphore.acquire();
+}
 }
 
 // Class representing a process (same as Assignment 1) - executes ONE time quantum per thread start
@@ -286,6 +292,8 @@ class Process implements Runnable {
 
 // A CPU of the simulated machine: takes a process from the shared ready queue, runs ONE quantum, and repeats.
 // (In Assignment 1 this loop was executed by the main thread: now several CPUs execute it at the same time.)
+
+    
 class CpuWorker extends Thread {
     private final int cpuId;
     private final ReadyQueue readyQueue;
@@ -298,44 +306,51 @@ class CpuWorker extends Thread {
 
     @Override
     public void run() {
-        while (SharedStats.getCompletedProcessCount() < SharedStats.totalProcesses) {
+        while (true) {
+            try {
+                readyQueue.awaitProcess();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
 
-            // TODO Feature 3: replace this polling loop by a blocking wait on the counting semaphore
+            if (SharedStats.getCompletedProcessCount() >= SharedStats.totalProcesses) {
+                return;
+            }
+
             Thread thread = readyQueue.poll();
+
             if (thread == null) {
-                // ⚠️ BUSY WAITING: the CPU keeps checking an empty queue instead of sleeping until
-                // a process is available. It wastes CPU time and needs the "completed == total" test above to stop.
-                SharedStats.busyWaitPolls.incrementAndGet();      // (counted for the verification block)
-                try {
-                    Thread.sleep(20);
-                } catch (InterruptedException e) {
-                    return;
-                }
                 continue;
             }
 
             Process process = readyQueue.processOf(thread);
-            System.out.println(Colors.MAGENTA + "  ┌─ [CPU-" + cpuId + "] picks " + Colors.BRIGHT_CYAN +
-                    process.getName() + Colors.MAGENTA + " │ Ready queue: [" + Colors.BRIGHT_WHITE +
-                    readyQueue.snapshot() + Colors.MAGENTA + "]" + Colors.RESET);
+
+            System.out.println(Colors.MAGENTA + "  ┌─ [CPU-" + cpuId + "] picks " +
+                    Colors.BRIGHT_CYAN + process.getName() +
+                    Colors.MAGENTA + " │ Ready queue: [" +
+                    Colors.BRIGHT_WHITE + readyQueue.snapshot() +
+                    Colors.MAGENTA + "]" + Colors.RESET);
 
             process.setCpuId(cpuId);
-            thread.start();                      // run one quantum
+            thread.start();
+
             try {
-                thread.join();                   // wait for the end of the quantum
+                thread.join();
             } catch (InterruptedException e) {
-                System.out.println("CPU-" + cpuId + " interrupted.");
+                Thread.currentThread().interrupt();
+                return;
             }
 
             if (!process.isFinished()) {
-                readyQueue.add(process);         // not finished: back to the ready queue
+                readyQueue.add(process);
+            } else if (SharedStats.getCompletedProcessCount() >= SharedStats.totalProcesses) {
+                readyQueue.wakeUpAllCPUs();
             }
-
-            // TODO Feature 3: when the LAST process has completed, wake up the CPUs that are blocked on the
-            // semaphore so that they can terminate (otherwise they would wait forever!)
         }
     }
 }
+
 
 public class SchedulerSimulationSync {
     public static void main(String[] args) {
