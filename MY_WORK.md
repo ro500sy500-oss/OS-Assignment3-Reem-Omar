@@ -30,14 +30,15 @@
 
 > ⚠️ **WARNING:** Fill this in first. Your name and ID must match the student ID you set in `SchedulerSimulationSync.java` (line 304) and the one you say in your video.
 
+
 | Field | Your Answer |
-|-------|-------------|
-| **Full Name** | [Write your full name here] |
-| **Student ID** | [Write your student ID here] |
-| **University Email** | [yourid]@std.psau.edu.sa |
-| **GitHub Username** | [your-github-username] |
-| **Repository Link** | [Paste your repository link here] |
- 
+|---|---|
+| **Full Name** | Reem Omar Alyahya |
+| **Student ID** | 445052108 |
+| **University Email** | 445052108@std.psau.edu.sa |
+| **GitHub Username** | ro500sy500-oss |
+| **Repository Link** | https://github.com/ro500sy500-oss/OS-Assignment3-Reem-Omar |
+
 ---
 
 ## 🎥 Video Link
